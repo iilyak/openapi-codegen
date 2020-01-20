@@ -137,7 +137,49 @@ function specificationExtensions(obj) {
     return result;
 }
 
-function convertOperation(op,verb,path,pathItem,obj,api) {
+function applySchema(generator, obj, subj, schema) {
+    subj.schema = schema;
+    subj.jsonSchema = safeJson(schema,null,2);
+    for (let p in schemaProperties) {
+        if (typeof schema[p] !== 'undefined') subj[p] = schema[p];
+    }
+    subj.isEnum = !!schema.enum;
+    subj.isBoolean = (schema.type === 'boolean');
+
+    subj.isListContainer = schema.type === 'array';
+    subj.isMapContainer = schema.type === 'subject';
+    subj.isPrimitiveType = !subj.isListContainer && !subj.isMapContainer;
+    subj.isNotContainer = subj.isPrimitiveType;
+    if (subj.isEnum) subj.isNotContainer = false;
+    subj.isContainer = !subj.isNotContainer;
+
+    if ((schema.type === 'object') && schema.properties && schema.properties["x-oldref"]) {
+        subj.complexType = schema.properties["x-oldref"].replace('#/components/schemas/','');
+    }
+    if ((schema.type === 'array') && schema.items && schema.items["x-oldref"]) {
+        let complexType = schema.items["x-oldref"].replace('#/components/schemas/','');
+        subj.itemsType = complexType;
+        subj.itemsTypeSnake = Case.snake(complexType);
+    }
+    subj.defaultValue = (schema && typeof schema.default !== 'undefined') ? schema.default : undefined;
+    subj.description = obj.description||'';
+
+    subj.vendorExtensions = specificationExtensions(obj);
+    if (obj.schema && obj.schema.nullable) {
+        subj.vendorExtensions["x-nullable"] = true;
+    }
+    subj.isDate = (obj.dataFormat == 'date');
+    subj.isDateTime = (obj.dataFormat == 'date-time');
+
+    // TODO: enum
+    if (generator && generator.applySchema) {
+        return generator.applySchema(obj,subj,schema);
+    } else {
+        return subj;
+    }
+}
+
+function convertOperation(generator,op,verb,path,pathItem,obj,api) {
     let operation = {};
     operation.httpMethod = verb.toUpperCase();
     if (obj.httpMethodCase === 'original') operation.httpMethod = verb; // extension
@@ -201,24 +243,11 @@ function convertOperation(op,verb,path,pathItem,obj,api) {
         if (!parameter.required) operation.hasOptionalParams = true;
         parameter.dataType = typeMap(param.schema.type,parameter.required,param.schema);
         parameter["%dataType%"] = parameter.dataType; // bug in typescript-fetch template? trying to use {{{ with different delimiters
-        for (let p of schemaProperties) {
-            if (typeof param.schema[p] !== 'undefined') parameter[p] = param.schema[p];
-        }
+        parameter = applySchema(generator,param,parameter,param.schema);
         parameter.example = JSON.stringify(safeSample(param.schema,{},api));
-        parameter.isBoolean = (param.schema.type === 'boolean');
-        parameter.isPrimitiveType = (!param.schema["x-oldref"]);
-        parameter.dataFormat = param.schema.format;
-        parameter.isDate = (parameter.dataFormat == 'date');
-        parameter.isDateTime = (parameter.dataFormat == 'date-time');
-        parameter.description = param.description||'';
         parameter.unescapedDescription = param.description;
-        parameter.defaultValue = (param.schema && typeof param.schema.default !== 'undefined') ? param.schema.default : undefined;
         parameter.isFile = false;
-        parameter.isEnum = false; // TODO?
-        parameter.vendorExtensions = specificationExtensions(param);
-        if (param.schema && param.schema.nullable) {
-            parameter.vendorExtensions["x-nullable"] = true;
-        }
+
         if (param.style === 'form') {
             if (param.explode) {
                 parameter.collectionFormat = 'multi';
@@ -289,7 +318,6 @@ function convertOperation(op,verb,path,pathItem,obj,api) {
         if (operation.bodyParam.required) operation.hasRequiredParams = true;
         if (!operation.bodyParam.required) operation.hasOptionalParams = true;
         operation.bodyParam.dataType = typeMap('object',operation.bodyParam.required,{}); // can be changed below
-        operation.bodyParam.description = op.requestBody.description||'';
         operation.bodyParam.schema = {};
         operation.bodyParam.isEnum = false; // TODO?
         operation.bodyParam.vendorExtensions = specificationExtensions(op.requestBody);
@@ -306,15 +334,15 @@ function convertOperation(op,verb,path,pathItem,obj,api) {
                 obj.hasConsumes = true;
             }
             operation.bodyParam.schema = contentType.schema;
+            operation.bodyParam = applySchema(generator,op.requestBody,operation.bodyParam,contentType.schema);
+
             operation.bodyParam.example = JSON.stringify(safeSample(contentType.schema,{},api));
-            for (let p in schemaProperties) {
-                if (typeof contentType.schema[p] !== 'undefined') operation.bodyParam[p] = contentType.schema[p];
-            }
             if (contentType.schema.type) {
                 operation.bodyParam.type = contentType.schema.type;
                 operation.bodyParam.dataType = typeMap(contentType.schema.type,operation.bodyParam.required,contentType.schema); // this is the below mentioned
             }
         }
+        operation.bodyParam = applySchema(generator,op.requestBody,operation.bodyParam,operation.bodyParam.schema);
         operation.bodyParam["%dataType%"] = operation.bodyParam.dataType; // bug in typescript-fetch template?
         operation.bodyParam.jsonSchema = safeJson({schema: operation.bodyParam.schema},null,2);
         operation.bodyParams.push(operation.bodyParam);
@@ -442,7 +470,7 @@ function convertOperation(op,verb,path,pathItem,obj,api) {
     return operation;
 }
 
-function convertToApis(source,obj,defaults) {
+function convertToApis(generator,source,obj,defaults) {
     let apis = [];
     for (let p in source.paths) {
         for (let m in source.paths[p]) {
@@ -471,7 +499,7 @@ function convertToApis(source,obj,defaults) {
                     entry.operations.operation = [];
                     apis.push(entry);
                 }
-                let operation = convertOperation(op,m,p,source.paths[p],obj,source);
+                let operation = convertOperation(generator,op,m,p,source.paths[p],obj,source);
                 entry.operations.operation.push(operation);
             }
         }
@@ -494,7 +522,7 @@ function convertToApis(source,obj,defaults) {
     return apis;
 }
 
-function convertToPaths(source,obj,defaults) {
+function convertToPaths(generator,source,obj,defaults) {
     let paths = [];
     for (let p in source.paths) {
         for (let m in source.paths[p]) {
@@ -537,7 +565,7 @@ function convertToPaths(source,obj,defaults) {
                     entry.operations.operation = [];
                     paths.push(entry);
                 }
-                let operation = convertOperation(op,m,p,source.paths[p],obj,source);
+                let operation = convertOperation(generator,op,m,p,source.paths[p],obj,source);
                 entry.operations.operation.push(operation);
             }
         }
@@ -756,7 +784,7 @@ function getPrime(api,defaults) {
     return prime;
 }
 
-function transform(api, defaults, callback) {
+function transform(generator, api, defaults, callback) {
     let base = getBase(); // defaults which are hard-coded
 
     let lang = (defaults.language||'').toLowerCase();
@@ -880,8 +908,8 @@ function transform(api, defaults, callback) {
     obj.produces = [];
 
     obj.apiInfo = {};
-    obj.apiInfo.apis = convertToApis(api,obj,defaults);
-    obj.apiInfo.paths = convertToPaths(api,obj,defaults);
+    obj.apiInfo.apis = convertToApis(generator,api,obj,defaults);
+    obj.apiInfo.paths = convertToPaths(generator,api,obj,defaults);
 
     obj.produces = convertArray(obj.produces);
     obj.consumes = convertArray(obj.consumes);
@@ -939,36 +967,14 @@ function transform(api, defaults, callback) {
                     entry.setter = Case.camel('set_'+entry.name);
                     entry.description = schema.description||'';
                     entry.unescapedDescription = entry.description;
-                    if (entry.name && !schema.type && schema["x-oldref"]) {
-                        entry.type = obj.modelPackage + '\\' + schema["x-oldref"].replace('#/components/schemas/', '');
-                    } else {
-                        entry.type = schema.type;
-                    }
+                    entry = applySchema(generator,{}, entry,schema);
+                    entry.type = schema.type;
                     entry.required = (parent.required && parent.required.indexOf(entry.name)>=0)||false;
                     entry.isNotRequired = !entry.required;
                     entry.readOnly = !!schema.readOnly;
                     entry.type = typeMap(entry.type,entry.required,schema);
-                    entry.dataType = entry.type; //camelCase for imported files
-                    entry.datatype = entry.type; //lower for other files
-                    entry.jsonSchema = safeJson(schema,null,2);
-                    for (let p in schemaProperties) {
-                        if (typeof schema[p] !== 'undefined') entry[p] = schema[p];
-                    }
-                    entry.isEnum = !!schema.enum;
-                    entry.isListContainer = schema.type === 'array';
-                    entry.isMapContainer = schema.type === 'object';
-                    entry.isPrimitiveType = !entry.isListContainer && !entry.isMapContainer;
-                    entry.isNotContainer = entry.isPrimitiveType;
-                    if (entry.isEnum) entry.isNotContainer = false;
-                    entry.isContainer = !entry.isNotContainer;
-                    if ((schema.type === 'object') && schema.properties && schema.properties["x-oldref"]) {
-                        entry.complexType = schema.properties["x-oldref"].replace('#/components/schemas/','');
-                    }
-                    if ((schema.type === 'array') && schema.items && schema.items["x-oldref"]) {
-                        entry.itemsComplexType = schema.items["x-oldref"].replace('#/components/schemas/','');
-                    }
+                    entry.datatype = entry.type; //?
                     entry.dataFormat = schema.format;
-                    entry.defaultValue = schema.default;
 
                     if (entry.isEnum) {
                         model.allowableValues = {};

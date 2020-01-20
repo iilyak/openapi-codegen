@@ -145,6 +145,12 @@ function applySchema(generator, obj, subj, schema) {
     }
     subj.isEnum = !!schema.enum;
     subj.isBoolean = (schema.type === 'boolean');
+    subj.isInteger = (schema.type === 'integer');
+    subj.isNumber = (schema.type === 'number' || schema.type === 'integer');
+    subj.isDouble = (subj.isNumber && schema.format === 'double');
+    subj.isFloat = (subj.isNumber && schema.format === 'float');
+    subj.isInt32 = (subj.isInteger && schema.format === 'int32');
+    subj.isInt64 = (subj.isInteger && schema.format === 'int64');
 
     subj.isListContainer = schema.type === 'array';
     subj.isMapContainer = schema.type === 'subject';

@@ -183,6 +183,9 @@ function applySchema(generator, obj, subj, schema) {
     if ((schema.type === 'object') && schema.properties && schema.properties["x-oldref"]) {
         subj.complexType = schema.properties["x-oldref"].replace('#/components/schemas/','');
     }
+    if ((schema.type === 'object') && schema["x-oldref"]) {
+        subj.complexType = schema["x-oldref"].replace('#/components/schemas/','');
+    }
     if ((schema.type === 'array') && schema.items && schema.items["x-oldref"]) {
         let complexType = schema.items["x-oldref"].replace('#/components/schemas/','');
         subj.itemsComplexType = complexType;

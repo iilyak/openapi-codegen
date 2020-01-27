@@ -185,9 +185,11 @@ function applySchema(generator, obj, subj, schema) {
     }
     if ((schema.type === 'array') && schema.items && schema.items["x-oldref"]) {
         let complexType = schema.items["x-oldref"].replace('#/components/schemas/','');
-        subj.itemsType = complexType;
-        subj.itemsTypeSnake = Case.snake(complexType);
         subj.itemsComplexType = complexType;
+    }
+    if ((schema.type === 'array') && schema.items && schema.items.type) {
+        subj.itemsType = schema.items.type;
+        subj.itemsTypeSnake = Case.snake(complexType);
     }
     subj.hasDefault = (schema && typeof schema.default !== 'undefined')
     subj.defaultValue = subj.hasDefault ? schema.default : undefined;

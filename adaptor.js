@@ -145,7 +145,22 @@ function applySchema(generator, obj, subj, schema) {
             subj[schemaProperties[p]] = schema[schemaProperties[p]];
         }
     }
-    subj.isEnum = !!schema.enum;
+
+    if (schema.enum) {
+        subj.isNotContainer = false;
+        subj.isEnum = !!schema.enum;
+        subj.allowableValues = {};
+        subj.allowableValues.enumVars = [];
+        subj["allowableValues.values"] = schema.enum;
+        subj.allowableValues.values = schema.enum;
+        for (let v of schema.enum) {
+            let e = { name: v, value: '"'+v+'"' }; // insane, why aren't the quotes in the template?
+            subj.allowableValues.enumVars.push(e);
+        }
+        subj.allowableValues.enumVars = convertArray(subj.allowableValues.enumVars);
+
+    }
+
     subj.isBoolean = (schema.type === 'boolean');
     subj.isInteger = (schema.type === 'integer');
     subj.isNumber = (schema.type === 'number' || schema.type === 'integer');
@@ -179,7 +194,6 @@ function applySchema(generator, obj, subj, schema) {
     subj.isDate = (obj.dataFormat == 'date');
     subj.isDateTime = (obj.dataFormat == 'date-time');
 
-    // TODO: enum
     if (generator && generator.applySchema) {
         return generator.applySchema(obj,subj,schema);
     } else {
@@ -983,18 +997,6 @@ function transform(generator, api, defaults, callback) {
                     entry.type = typeMap(entry.type,entry.required,schema);
                     entry.datatype = entry.type; //?
                     entry.dataFormat = schema.format;
-
-                    if (entry.isEnum) {
-                        model.allowableValues = {};
-                        model.allowableValues.enumVars = [];
-                        model["allowableValues.values"] = schema.enum;
-                        model.allowableValues.values = schema.enum;
-                        for (let v of schema.enum) {
-                            let e = { name: v, nameInCamelCase: Case.camel(v), value: '"'+v+'"' }; // insane, why aren't the quotes in the template?
-                            model.allowableValues.enumVars.push(e);
-                        }
-                        model.allowableValues.enumVars = convertArray(model.allowableValues.enumVars);
-                    }
 
                     if (entry.name && state.depth<=1) {
                         entry.nameInCamelCase = Case.pascal(entry.name); // for erlang-client

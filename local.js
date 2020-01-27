@@ -33,18 +33,21 @@ function main(o, config, configName, callback) {
     let outputDir = config.outputDir || './out/';
     let verbose = config.defaults.verbose;
     config.defaults.configName = configName;
-
-    adaptor.transform(o, config.defaults, function(err, model) {
-        if (config.generator) {
-            model.generator = config.generator;
-        }
+    let generator = undefined;
+    if (config.generator) {
+        generator = config.generator;
+    }
+    adaptor.transform(generator, o, config.defaults, function(err, model) {
+        model["generator"] = generator;
         if (verbose) console.log('Processing lambdas '+Object.keys(lambdas));
         Object.keys(lambdas).forEach(key => model[key] = lambdas[key]);
 
-        if (config.generator && config.generator.lambdas) {
-            for (let lambda in config.generator.lambdas) {
+        if (verbose) console.log('Processing custom lambda '+generator.lambdas);
+
+        if (generator && generator.lambdas) {
+            for (let lambda in generator.lambdas) {
                 if (verbose) console.log('Processing lambda '+lambda);
-                model[lambda] = config.generator.lambdas[lambda];
+                model[lambda] = generator.lambdas[lambda];
             }
         }
         for (let p in config.partials) {

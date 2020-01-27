@@ -141,7 +141,9 @@ function applySchema(generator, obj, subj, schema) {
     subj.schema = schema;
     subj.jsonSchema = safeJson(schema,null,2);
     for (let p in schemaProperties) {
-        if (typeof schema[p] !== 'undefined') subj[p] = schema[p];
+        if (schemaProperties[p] in schema) {
+            subj[schemaProperties[p]] = schema[schemaProperties[p]];
+        }
     }
     subj.isEnum = !!schema.enum;
     subj.isBoolean = (schema.type === 'boolean');

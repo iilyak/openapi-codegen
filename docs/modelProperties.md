@@ -159,3 +159,4 @@
 |isArrayContainer|model|false|boolean - set to true when container is an array|
 |itemsComplexType|vars|OrderDetails|Stores the name of the model for array elements|
 |isString|vars/model|false|boolean - set to true when element is string|
+|hasPattern|vars/model|false|boolean - set to true when element is string and schema has pattern property|

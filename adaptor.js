@@ -162,6 +162,7 @@ function applySchema(generator, obj, subj, schema) {
     }
 
     subj.isString = (schema.type === 'string');
+    subj.hasPattern = (schema.pattern);
     subj.isBoolean = (schema.type === 'boolean');
     subj.isInteger = (schema.type === 'integer');
     subj.isNumber = (schema.type === 'number' || schema.type === 'integer');

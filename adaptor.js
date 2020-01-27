@@ -187,6 +187,7 @@ function applySchema(generator, obj, subj, schema) {
         let complexType = schema.items["x-oldref"].replace('#/components/schemas/','');
         subj.itemsType = complexType;
         subj.itemsTypeSnake = Case.snake(complexType);
+        subj.itemsComplexType = complexType;
     }
     subj.hasDefault = (schema && typeof schema.default !== 'undefined')
     subj.defaultValue = subj.hasDefault ? schema.default : undefined;

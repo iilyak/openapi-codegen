@@ -170,7 +170,10 @@ function applySchema(generator, obj, subj, schema) {
     subj.isFloat = (subj.isNumber && schema.format === 'float');
     subj.isInt32 = (subj.isInteger && schema.format === 'int32');
     subj.isInt64 = (subj.isInteger && schema.format === 'int64');
-
+    subj.hasRange = (subj.isNumber && (
+        subj.minimum || subj.exclusiveMinimum
+        || subj.maximum  || subj.exclusiveMaximum)
+    );
     subj.isListContainer = schema.type === 'array';
     subj.isMapContainer = schema.type === 'subject';
     subj.isPrimitiveType = !subj.isListContainer && !subj.isMapContainer;

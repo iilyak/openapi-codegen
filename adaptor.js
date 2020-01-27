@@ -188,7 +188,8 @@ function applySchema(generator, obj, subj, schema) {
         subj.itemsType = complexType;
         subj.itemsTypeSnake = Case.snake(complexType);
     }
-    subj.defaultValue = (schema && typeof schema.default !== 'undefined') ? schema.default : undefined;
+    subj.hasDefault = (schema && typeof schema.default !== 'undefined')
+    subj.defaultValue = subj.hasDefault ? schema.default : undefined;
     subj.description = obj.description||'';
 
     subj.vendorExtensions = specificationExtensions(obj);

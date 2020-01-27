@@ -175,7 +175,6 @@ function applySchema(generator, obj, subj, schema) {
     subj.isMapContainer = schema.type === 'subject';
     subj.isPrimitiveType = !subj.isListContainer && !subj.isMapContainer;
     subj.isNotContainer = subj.isPrimitiveType;
-    if (subj.isEnum) subj.isNotContainer = false;
     subj.isContainer = !subj.isNotContainer;
 
     if ((schema.type === 'object') && schema.properties && schema.properties["x-oldref"]) {
